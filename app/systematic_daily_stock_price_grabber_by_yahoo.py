@@ -4,6 +4,10 @@ from app.grabber import yfinance_stock_price_grabber
 
 
 class SystematicDailyStockPriceGrabberByYahoo:
+    """
+    媽的，結果 yahoo finance 根本不能用。
+    一堆錯誤，棄用。
+    """
 
     start = "2007-01-01"
     end = "2019-12-31"

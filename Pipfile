@@ -7,9 +7,6 @@ verify_ssl = true
 
 [packages]
 psycopg2 = "*"
-yfinance = "*"
-pandas = "*"
-sqlalchemy = "*"
 
 [requires]
 python_version = "3.7"
