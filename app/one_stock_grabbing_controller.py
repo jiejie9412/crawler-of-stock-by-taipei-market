@@ -39,6 +39,7 @@ class OneStockGrabbingController(object):
     def grab_history_price(self, stock_number, grab_interval_sleep=False, use_luminati_proxy=False):
 
         print(stock_number + " 開始抓取歷史股價！！")
+        self._insert_status_information_to_sql("history_price_grabber", "normal", stock_number, "0", "開始抓取歷史股價", "")
 
         current_table_name = self._stock_table_name_template.format(stock_number)
         self._create_daily_price_stock_table(current_table_name)
@@ -47,6 +48,9 @@ class OneStockGrabbingController(object):
 
             for current_month in range(self._start_month, self._end_month + 1):
 
+                if self._check_date_more_than_the_2019_8(current_year, current_month) is True:
+                    break
+
                 try:
                     self._grab_month_stock_price_and_insert_to_sql(stock_number, current_table_name, current_year, current_month, use_luminati_proxy)
                 except KeyError as e:
@@ -54,13 +58,29 @@ class OneStockGrabbingController(object):
                     print(e.args)
                     print("很抱歉，沒有符合條件的資料!")
 
-                if self._check_date_more_than_the_2019_8(current_year, current_month) is True:
-                    break
-
                 if grab_interval_sleep is True:
                     time.sleep(10)
 
         print(stock_number + " 抓取成功！！！！")
+        self._insert_status_information_to_sql("history_price_grabber", "normal", stock_number, "0", "抓取成功", "")
+
+    def _insert_status_information_to_sql(self, status_source, status_type, stock_number, error_code, message, remark):
+        insert_sql_statement = self._produce_insert_status_information_statement(status_source, status_type, stock_number, error_code, message, remark)
+        self._daily_price_stock_database_cursor.execute(insert_sql_statement)
+        self._daily_price_stock_database_connector.commit()
+
+    @staticmethod
+    def _produce_insert_status_information_statement(status_source, status_type, stock_number, error_code, message, remark):
+        insert_sql_statement = """INSERT INTO "status_information" ("status_source", "status_type", "stock_number", "error_code", "message", "remark") 
+            VALUES ('{status_source}', '{status_type}', '{stock_number}', '{error_code}', '{message}', '{remark}');"""
+        return insert_sql_statement.format(
+            status_source=status_source,
+            status_type=status_type,
+            stock_number=stock_number,
+            error_code=error_code,
+            message=message,
+            remark=remark
+        )
 
     def _create_daily_price_stock_table(self, table_string):
         if self._table_is_exist(table_string) is False:
@@ -92,7 +112,7 @@ class OneStockGrabbingController(object):
         for one_record in history_data:
             record_dict = self._separate_list_record_to_dict(one_record)
             record_dict = self._check_price_value(record_dict)
-            insert_sql_statement = self._produce_insert_sql_statement(record_dict, stock_table_name)
+            insert_sql_statement = self._produce_insert_stock_price_statement(record_dict, stock_table_name)
             self._daily_price_stock_database_cursor.execute(insert_sql_statement)
         self._daily_price_stock_database_connector.commit()
 
@@ -123,7 +143,7 @@ class OneStockGrabbingController(object):
         return record_dict
 
     @staticmethod
-    def _produce_insert_sql_statement(record_dict, stock_table_name):
+    def _produce_insert_stock_price_statement(record_dict, stock_table_name):
         insert_sql_statement = """INSERT INTO "{table_name}" ("date", "open", "high", "low", "close", "volume", "transaction") 
         VALUES ('{date}', {open}, {high}, {low}, {close}, {volume}, {transaction});"""
         return insert_sql_statement.format(
