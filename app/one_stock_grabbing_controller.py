@@ -44,6 +44,7 @@ class OneStockGrabbingController(object):
         current_table_name = self._stock_table_name_template.format(stock_number)
         self._create_daily_price_stock_table(current_table_name)
 
+        year_break = False
         for current_year in range(self._start_year, self._end_year + 1):
 
             for current_month in range(self._start_month, self._end_month + 1):
@@ -52,17 +53,20 @@ class OneStockGrabbingController(object):
                     break
 
                 try:
-                    self._grab_month_stock_price_and_insert_to_sql(stock_number, current_table_name, current_year, current_month, use_luminati_proxy)
-                except KeyError as e:
-                    print("股票代號：" + stock_number + "，年：" + str(current_year) + "月：" + str(current_month))
-                    print(e.args)
-                    print("很抱歉，沒有符合條件的資料!")
+                    self._grab_month_stock_price_and_insert_to_sql_and_error_handing(stock_number, current_table_name, current_year, current_month, use_luminati_proxy)
+                except Exception:
+                    year_break = True
+                    break
 
                 if grab_interval_sleep is True:
                     time.sleep(10)
 
-        print(stock_number + " 抓取成功！！！！")
-        self._insert_status_information_to_sql("history_price_grabber", "normal", stock_number, "0", "抓取成功", "")
+            if year_break is True:
+                break
+
+        if year_break is False:
+            print(stock_number + " 抓取成功！！！！")
+            self._insert_status_information_to_sql("history_price_grabber", "normal", stock_number, "0", "抓取成功", "")
 
     def _insert_status_information_to_sql(self, status_source, status_type, stock_number, error_code, message, remark):
         insert_sql_statement = self._produce_insert_status_information_statement(status_source, status_type, stock_number, error_code, message, remark)
@@ -103,6 +107,39 @@ class OneStockGrabbingController(object):
         create_sql = self._create_table_statement_template.format(table_string)
         self._daily_price_stock_database_cursor.execute(create_sql)
         self._daily_price_stock_database_connector.commit()
+
+    def _grab_month_stock_price_and_insert_to_sql_and_error_handing(self, stock_number, stock_table_name, year, month, use_luminati_proxy):
+        """嘗試三次，如果確定有意外發生就退出。"""
+        try:
+            self._grab_month_stock_price_and_insert_to_sql(stock_number, stock_table_name, year, month, use_luminati_proxy)
+        except Exception:
+            try:
+                time.sleep(5)
+                self._grab_month_stock_price_and_insert_to_sql(stock_number, stock_table_name, year, month, use_luminati_proxy)
+            except Exception:
+                try:
+                    time.sleep(5)
+                    self._grab_month_stock_price_and_insert_to_sql(stock_number, stock_table_name, year, month, use_luminati_proxy)
+                except KeyError as e:
+                    self._grabbing_error_handing(e, stock_number, year, month, "0001", "日期區間內沒有資料")
+                except Exception as e:
+                    self._grabbing_error_handing(e, stock_number, year, month, "9999", "發生未預期的錯誤")
+
+    def _grabbing_error_handing(self, error_class, stock_number, year, month, error_code, error_string):
+        error_string_template = str(year) + " 年 " + str(month) + " 月 {}"
+        self._insert_status_information_to_sql(
+            "history_price_grabber",
+            "error",
+            stock_number,
+            error_code,
+            error_string_template.format(error_string),
+            str(error_class.args).replace("\"", "").replace("'", "")
+        )
+        print("xxxxxxxxxxxxxx")
+        print("股票代號：" + stock_number + "，" + error_string_template.format(error_string))
+        print(error_class.args)
+        print("xxxxxxxxxxxxxx")
+        raise error_class
 
     def _grab_month_stock_price_and_insert_to_sql(self, stock_number, stock_table_name, year, month, use_luminati_proxy):
         history_data = self.twse_stock_price_grabber.grab_stock_price(stock_number=stock_number, year=year, month=month, use_luminati_proxy=use_luminati_proxy)
