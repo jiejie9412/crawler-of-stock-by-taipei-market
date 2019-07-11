@@ -23,8 +23,8 @@ class TwseStockMonthPriceGrabber(object):
 
     _twse_get_month_price_data_url_template = "http://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={}&stockNo={}"
 
-    _luminati_proxy_username = ''
-    _luminati_proxy_password = ''
+    _luminati_proxy_username = 'lum-customer-hl_6e25b065-zone-static'
+    _luminati_proxy_password = 'm1mzjzqnp2ip'
     _luminati_proxy_port = 22225
     _session_id = 0
     _session_id_used_counter = 99999

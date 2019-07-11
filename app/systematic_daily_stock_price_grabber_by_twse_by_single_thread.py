@@ -1,15 +1,12 @@
-from app.sql_connection.postgres_connector import PostgresConnector
+from app.sql_connection.postgres_connector_use_pool import PostgresConnectorUsePool
 from app.one_stock_grabbing_controller import OneStockGrabbingController
 
 
 class SystematicDailyStockPriceGrabberByTwseBySingleThread:
 
     def __init__(self):
-        self._db_connector = PostgresConnector()
-        self._init_project_database_connector()
-
-    def _init_project_database_connector(self):
-        self._project_database_connector = self._db_connector.project_database_connector
+        self._db_connection_pool = PostgresConnectorUsePool()
+        self._project_database_connector = self._db_connection_pool.project_database_connection_pool.getconn()
         self._project_database_cursor = self._project_database_connector.cursor()
 
     def grab_history_price(self):
@@ -19,7 +16,7 @@ class SystematicDailyStockPriceGrabberByTwseBySingleThread:
         print("company_basic_information table 裡要測試的股票總數：" + str(len(list_of_need_grab_history_stock_price)))
 
         for stock_item in list_of_need_grab_history_stock_price:
-            one_stock_grabbing_controller = OneStockGrabbingController()
+            one_stock_grabbing_controller = OneStockGrabbingController(self._db_connection_pool.daily_price_stock_database_connection_pool)
             one_stock_grabbing_controller.grab_history_price(stock_item[1], grab_interval_sleep=True, use_luminati_proxy=False)
 
     def _get_need_grab_history_stock_list(self):
